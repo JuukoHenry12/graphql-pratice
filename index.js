@@ -32,6 +32,7 @@ const schema = buildSchema(`
         mutation: RootMutation
     }
 `)
+
 // The root provides a resolver function for each API endpoint
 const root = {
   events: async() => {
