@@ -5,9 +5,8 @@ const bodyParser = require('body-parser');
 const app = express()
 const { mongoose } = require("mongoose")
 const Event = require("./schema/Event")
+
 app.use(bodyParser.json());
-
-
 const schema = buildSchema(`
    type Event {
      _id:ID!
@@ -23,35 +22,50 @@ const schema = buildSchema(`
       date:String!
     }
     type RootQuery{
-        events:[Event!]!
+      events:[Event!]!
     }
     type RootMutation{
      createEvent(eventInput:EventInput):Event
     } 
-        schema {
-            query: RootQuery
-            mutation: RootMutation
-        }
+    schema {
+        query: RootQuery
+        mutation: RootMutation
+    }
 `)
 // The root provides a resolver function for each API endpoint
 const root = {
-  events: () => {
-    return events;
+  events: async() => {
+    try{
+       const events =await Event.find();
+       return events.map(event=>({
+        ...event._doc,
+        _id:event.id
+       }));
+    }catch(error){
+       throw error
+    }
   },
-   createEvent: (args) => {
+   createEvent: async(args) => {
     const events = new Event({
       title: args.eventInput.title,
       description: args.eventInput.description,
       price: +args.eventInput.price,
       date: new Date(args.eventInput.date)
     })
-    events.save().then(result => {
-      console.log(result)
-      return {...result.doc};
-    }).catch(err => {
-      console.log(err)
-    })
-    //  return events;
+    try{
+      const result =await events.save();
+      return {
+        ...result._doc,
+        _id:result.id,
+        title:result.title,
+        description:result.description,
+        price:result.price,
+        date:result.date
+      }
+    }catch(error){
+      console.log(error)
+      throw error
+    }
   },
   graphql: true
 }
@@ -65,10 +79,16 @@ app.all(
   })
 )
 
-mongoose.connect(`mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.nr8ol.mongodb.net/${process.env.MONGO_DATABASE}?retryWrites=true`)
-  .then().catch(err => {
-    app.listen(4000)
-  });
-
-// Start the server at port
-console.log("Running a GraphQL API server at http://localhost:4000/graphql")
+mongoose
+  .connect(
+    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.nr8ol.mongodb.net/${process.env.MONGO_DATABASE}`
+  )
+  .then(() => {
+    console.log('Connected to MongoDB successfully');
+    app.listen(5000, () => {
+      console.log('Server is running on port 5000');
+    });
+  })
+  .catch((err) => {
+    console.error('Error connecting to the database:', err);
+});
